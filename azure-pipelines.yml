@@ -1,15 +1,16 @@
+
 trigger:
 - '*'
 
 pool:
-  vmImage: 'ubuntu-20.04'
+  vmImage: 'ubuntu-latest'
   demands:
   - npm
 
 variables:
   buildConfiguration: 'Release'
   wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-  dotnetSdkVersion: '6.x'
+  dotnetSdkVersion: '8.x'
 
 steps:
 - task: UseDotNet@2
@@ -17,17 +18,17 @@ steps:
   inputs:
     version: '$(dotnetSdkVersion)'
 
-- task: NuGetToolInstaller@0
-  inputs:
-    versionSpec: '5.9.1'
+# ✅ Remove deprecated node-sass (optional but good hygiene)
+- script: npm uninstall node-sass
+  displayName: 'Uninstall node-sass'
 
-- task: Npm@1
-  displayName: 'Run npm install'
-  inputs:
-    verbose: false
+# ✅ Install dart-sass
+- script: npm install sass --save-dev
+  displayName: 'Install sass (dart-sass)'
 
-- script: './node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)'
-  displayName: 'Compile Sass assets'
+# ✅ Check installed sass version
+- script: npx sass --version
+  displayName: 'Check Sass version'
 
 - task: gulp@1
   displayName: 'Run gulp tasks'
@@ -35,6 +36,14 @@ steps:
 - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
   displayName: 'Write build info'
   workingDirectory: $(wwwrootDir)
+
+- task: DotNetCoreCLI@2
+  displayName: 'Restore project dependencies'
+  inputs:
+    command: 'restore'
+    projects: '**/*.sln'
+    feedsToUse: 'select'
+    vstsFeed: '$(System.TeamProject)/Tailspin.SpaceGame.Web.Models'
 
 - task: DotNetCoreCLI@2
   displayName: 'Build the project - $(buildConfiguration)'
